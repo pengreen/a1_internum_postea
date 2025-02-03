@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Subst. Interna</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #000;
+        }
+        .highlight {
+            color: #1a5a3a;
+        }
+        .upload-section, .company-section, .total-section {
+            margin-bottom: 20px;
+        }
+        .upload-section input[type="file"] {
+            margin-right: 10px;
+        }
+        .upload-section button {
+            margin-right: 10px;
+        }
+        .company-section {
+            display: flex;
+            justify-content: space-between;
+            background-color: #1a5a3a;
+            color: #ffffff;
+            padding: 10px;
+        }
+        .company-section div {
+            display: flex;
+            align-items: center;
+        }
+        .company-section label {
+            margin-right: 10px;
+        }
+        .company-section input {
+            width: 200px;
+            padding: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        thead {
+            background-color: #1a5a3a;
+            color: #ffffff;
+        }
+        thead th {
+            padding: 10px;
+            border: 1px solid #000;
+        }
+        tbody td {
+            padding: 10px;
+            border: 1px solid #000;
+        }
+        .total-section {
+            text-align: right;
+            margin-top: 10px;
+            font-size: 1.2em;
+        }
+        .total-section label {
+            font-weight: bold;
+        }
+        .highlight-row {
+            background-color: pink;
+            color: black;
+        }
+        .exempt-row {
+            background-color: #00bcd4; /* Azul piscina */
+            color: white;
+        }
+        .exempt-row-zero {
+            background-color: #004d80; /* Azul escuro */
+            color: white;
+        }
+        .basic-food-a-row {
+            background-color: #00FF7F; /* SpringGreen */
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Princess - Mapa <span class="highlight">da Subst. interna</span> pelas Entradas</h1>
+        <div class="upload-section">
+            <input type="file" id="xmlInput" multiple>
+            <button id="loadButton">carregar</button>
+            <button id="exportButton">Baixar em Excel</button>
+        </div>
+        <div class="company-section">
+            <div>
+                <label for="empresa">Empresa:</label>
+                <input type="text" id="empresa" readonly>
+            </div>
+            <div>
+                <label for="cnpj">CNPJ:</label>
+                <input type="text" id="cnpj" readonly>
+            </div>
+            <div>
+                <label for="comp">Comp.:</label>
+                <input type="text" id="comp" readonly>
+            </div>
+        </div>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>NOTA</th>
+                    <th>FORNECEDOR</th>
+                    <th>PRODUTO</th>
+                    <th>NCM</th>
+                    <th>CFOP</th>
+                    <th>TOTAL</th>
+                    <th>DESCONTO</th>
+                    <th>BASE CALC.</th>
+                    <th>ALÍQ.</th>
+                    <th>ICMS</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Linhas geradas dinamicamente -->
+            </tbody>
+        </table>
+        <div class="total-section">
+            <label for="totalImposto">Imposto:</label>
+            <span id="totalImposto">0,00</span>
+        </div>
+        <footer>©️2024-2025. Versão 0.09 - Essa é uma versão teste, não o tome como parâmetro final. Atualizado em 31 de jan. de 2025 - Desenvolvido por Arlan Arnor</footer>
+    </div>
+    <script>
+        document.getElementById('loadButton').addEventListener('click', processXMLs);
+        document.getElementById('exportButton').addEventListener('click', exportTableToExcel);
+
+        const cfopsToFilter = ["1202", "1411", "1949", "1556", "1926"];
+        const exemptProducts = [
+            "abacate", "abacaxi", "acerola", "araçá", "abóbora", "abobrinha", "acelga", 
+            "açafrão", "agrião", "aipim", "aipo", "alface", "almeirão", "alcachofra", 
+            "araruta", "alecrim", "arruda", "alfavaca", "alfazema", "aneto", "anis", 
+            "azedim", "banana", "batata", "batata-doce", "berinjela", "bertalha", 
+            "beterraba", "brócolis", "cajá", "caju", "cajarana", "carambola", 
+            "camomila", "cará", "cardo", "catalanha", "cebola", "cebolinha", 
+            "cenoura", "chicória", "chuchu", "coco verde", "coentro", "couve", 
+            "couve-flor", "cogumelo", "erva-cidreira", "erva-doce", 
+            "erva-de-santa-maria", "espinafre", "escarola", "endívia", "espargo", 
+            "goiaba", "graviola", "inhame", "hortelã", "jaca", "jaboticaba", 
+            "jamelão", "jenipapo", "jiló", "laranja", "limão", "losna", "manga", 
+            "melancia", "mamão", "melão", "manjelão", "maracujá", "mangaba", 
+            "mandioca", "milho verde", "manjericão", "manjerona", "maxixe", 
+            "macaxeira", "nabo", "nabica", "pinha", "pitanga", "palmito", 
+            "pepino", "pimentão", "pimenta", "repolho", "rabanete", "rúcula", 
+            "raiz-forte", "ruibarbo", "repolho chinês", "sapoti", "sapota", 
+            "salsa", "segurelha", "tamarindo", "tangerina", "taioba", "tampala", 
+            "tomate", "tomilho", "vagem", "umbu",
+            "quiabo" // Novo item adicionado
+        ];
+
+        const basicFoodA = [
+            {"nome": "arroz"},
+            {"nome": "feijão"},
+            {"nome": "leite"},
+            {"nome": "café"},
+            {"nome": "sal"},
+            {"nome": "óleo de soja"},
+            {"nome": "manteiga"},
+            {"nome": "queijo coalho"},
+            {"nome": "requeijão"},
+            {"nome": "farinha de milho"},
+            {"nome": "fubá"},
+            {"nome": "flocos de milho"},
+            {"nome": "flocão"},
+            {"nome": "peixe"},
+            {"nome": "queijo qualho"},
+            {"nome": "quieijo coalho"},
+            {"nome": "qeijo coalho"},
+            {"nome": "qeijo qualho"},
+            {"nome": "quieijo qualho"},
+            {"nome": "queijo de qualho"},
+            {"nome": "quieijo de coalho"},
+            {"nome": "qeijo de coalho"},
+            {"nome": "qeijo de qualho"},
+            {"nome": "queijo de coalho"}
+        ];
+
+        function processXMLs() {
+            const files = document.getElementById('xmlInput').files;
+            const dataTable = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+            dataTable.innerHTML = '';
+            let processedFiles = 0;
+
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(e.target.result, "text/xml");
+
+                    if (shouldProcessXML(xmlDoc)) {
+                        const tpNF = xmlDoc.getElementsByTagName('tpNF')[0].textContent;
+                        if (tpNF === '0') {
+                            const emit = xmlDoc.getElementsByTagName('emit')[0];
+                            document.getElementById('empresa').value = emit.getElementsByTagName('xNome')[0].textContent;
+                            document.getElementById('cnpj').value = emit.getElementsByTagName('CNPJ')[0].textContent;
+
+                            const nNF = xmlDoc.getElementsByTagName('nNF')[0].textContent;
+                            const dest = xmlDoc.getElementsByTagName('dest')[0];
+                            const fornecedor = dest.getElementsByTagName('xNome')[0].textContent;
+
+                            const detItems = xmlDoc.getElementsByTagName('det');
+                            for (let det of detItems) {
+                                const cfop = det.getElementsByTagName('CFOP')[0].textContent;
+                                if (!cfopsToFilter.includes(cfop)) {
+                                    const produto = det.getElementsByTagName('xProd')[0].textContent;
+                                    const ncm = det.getElementsByTagName('NCM')[0]?.textContent || 'N/A';
+                                    const total = parseFloat(det.getElementsByTagName('vProd')[0].textContent);
+                                    const desconto = parseFloat(det.getElementsByTagName('vDesc')[0]?.textContent || '0.00');
+                                    const baseCalc = parseFloat(det.getElementsByTagName('vBC')[0]?.textContent || '0.00');
+                                    let aliq = parseFloat(det.getElementsByTagName('pICMS')[0]?.textContent || '0.00');
+                                    let icms = parseFloat(det.getElementsByTagName('vICMS')[0]?.textContent || '0.00');
+
+                                    addRowToTable(dataTable, nNF, fornecedor, produto, ncm, cfop, total, desconto, baseCalc, aliq, icms);
+                                }
+                            }
+                        }
+                    }
+                    processedFiles++;
+                    if (processedFiles === files.length) {
+                        calculateTotalImposto();
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function shouldProcessXML(xmlDoc) {
+            const cpfElement = xmlDoc.getElementsByTagName('CPF')[0];
+            const cfopElements = xmlDoc.getElementsByTagName('CFOP');
+            
+            if (cpfElement) {
+                return true;
+            }
+
+            for (let cfopElement of cfopElements) {
+                if (cfopsToFilter.includes(cfopElement.textContent)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function addRowToTable(dataTable, nNF, fornecedor, produto, ncm, cfop, total, desconto, baseCalc, aliq, icms) {
+            const row = dataTable.insertRow();
+            row.insertCell(0).innerText = nNF;
+            row.insertCell(1).innerText = fornecedor;
+            row.insertCell(2).innerText = produto;
+            row.insertCell(3).innerText = ncm;
+            row.insertCell(4).innerText = cfop;
+            row.insertCell(5).innerText = total.toFixed(2);
+            row.insertCell(6).innerText = desconto.toFixed(2);
+
+            const isBasicFoodA = isBasicFoodAProduct(produto);
+
+            const baseCalcCell = row.insertCell(7);
+            const baseCalcInput = document.createElement('input');
+            baseCalcInput.type = 'number';
+            baseCalcInput.value = isBasicFoodA ? (total - desconto).toFixed(2) : baseCalc.toFixed(2);
+            baseCalcInput.onchange = function () {
+                const newBaseCalc = parseFloat(baseCalcInput.value) || 0;
+                const newICMS = (newBaseCalc * aliq) / 100;
+                icmsCell.innerText = newICMS.toFixed(2);
+                calculateTotalImposto();
+            };
+            baseCalcCell.appendChild(baseCalcInput);
+
+            const aliqCell = row.insertCell(8);
+            const aliqInput = document.createElement('input');
+            aliqInput.type = 'number';
+            aliqInput.value = isBasicFoodA ? 9.10 : aliq.toFixed(2);
+            aliqInput.onchange = function () {
+                const newAliq = parseFloat(aliqInput.value) || 0;
+                if (newAliq === 0) {
+                    baseCalcInput.value = (0).toFixed(2);
+                    icmsCell.innerText = (0).toFixed(2);
+                } else {
+                    const newBaseCalc = total - desconto;
+                    baseCalcInput.value = newBaseCalc.toFixed(2);
+                    const newICMS = (newBaseCalc * newAliq) / 100;
+                    icmsCell.innerText = newICMS.toFixed(2);
+                }
+                calculateTotalImposto();
+            };
+            aliqCell.appendChild(aliqInput);
+
+            const icmsCell = row.insertCell(9);
+            icmsCell.innerText = isBasicFoodA ? ((total - desconto) * 9.10 / 100).toFixed(2) : icms.toFixed(2);
+
+            if (isBasicFoodA) {
+                row.classList.add('basic-food-a-row');
+            } else if (isExempt(produto)) {
+                if (baseCalc > 0 || aliq > 0 || icms > 0) {
+                    baseCalcInput.value = (0).toFixed(2);
+                    aliqInput.value = (0).toFixed(2);
+                    icmsCell.innerText = (0).toFixed(2);
+                    row.classList.add('exempt-row-zero');
+                } else {
+                    row.classList.add('exempt-row');
+                }
+            }
+
+            if (desconto > 0) {
+                row.classList.add('highlight-row');
+            }
+
+            calculateTotalImposto();
+        }
+
+        function isBasicFoodAProduct(produto) {
+            const normalizedProduct = normalizeString(produto);
+            return basicFoodA.some(item => {
+                const normalizedItem = normalizeString(item.nome);
+                return normalizedProduct.startsWith(normalizedItem);
+            });
+        }
+
+        function isExempt(produto) {
+            const normalizedProduct = normalizeString(produto);
+            return exemptProducts.some(item => {
+                const normalizedItem = normalizeString(item);
+                return normalizedProduct.startsWith(normalizedItem);
+            });
+        }
+
+        function normalizeString(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[-Çç]/g, "").toLowerCase();
+        }
+
+        function calculateTotalImposto() {
+            const dataTable = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+            let totalImposto = 0;
+            for (let row of dataTable.rows) {
+                totalImposto += parseFloat(row.cells[9].innerText);
+            }
+            document.getElementById('totalImposto').innerText = totalImposto.toFixed(2);
+        }
+
+        function exportTableToExcel() {
+            let table = document.getElementById('dataTable');
+            let wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+            let ws = wb.Sheets["Sheet1"];
+
+            XLSX.utils.sheet_add_aoa(ws, [
+                [null, null, null, null, "Empresa:", document.getElementById('empresa').value],
+                [null, null, null, null, "CNPJ:", document.getElementById('cnpj').value],
+            ], { origin: -1 });
+
+            XLSX.writeFile(wb, 'substituicao_interna.xlsx');
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+</body>
+</html>
